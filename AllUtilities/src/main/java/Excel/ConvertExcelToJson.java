@@ -1,14 +1,11 @@
 package Excel;
 
 import com.google.gson.Gson;
-import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
-import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.apache.tools.ant.types.selectors.SelectSelector;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -22,67 +19,13 @@ import java.util.List;
 
 public class ConvertExcelToJson {
 
-    private static LinkedHashMap<String, String[]> annualTravelStructure;
-    private static LinkedHashMap<String, String[]> singleTravelStructure;
-    private static LinkedHashMap<String, String[]> motorCarStructure;
-    private static LinkedHashMap<String, String[]> motorCycleStructure;
-
-
-    public static void initData() {
-        //Todo:  Read setting from XML or Json file and to init dataStructure
-
-        annualTravelStructure = new LinkedHashMap<String, String[]>();
-        String[] tcDataRange = new String[]{"A", "A"};
-        String[] PortalTravelGetQuotePage = new String[]{"C", "J"};
-        String[] PortalTravelChoosePlanPage = new String[]{"K", "P"};
-        String[] PortalTravelYourDetailsPage = new String[]{"Q", "CN"};
-        String[] PortalTravelSummaryPage = new String[]{"CO", "CS"};
-        String[] PortalBuyPage = new String[]{"CT", "CY"};
-
-        annualTravelStructure.put("TC_ID", tcDataRange);
-        annualTravelStructure.put("PortalTravelGetQuotePage", PortalTravelGetQuotePage);
-        annualTravelStructure.put("PortalTravelChoosePlanPage", PortalTravelChoosePlanPage);
-        annualTravelStructure.put("PortalTravelYourDetailsPage", PortalTravelYourDetailsPage);
-
-        annualTravelStructure.put("PortalTravelSummaryPage", PortalTravelSummaryPage);
-        annualTravelStructure.put("PortalBuyPage", PortalBuyPage);
-//--------------------------Motor Cycle -------------
-
-        String[] motorCycleTestCaseID = new String[]{"A", "A"};
-        String[] PortalMotorcycleGetAQuotePage = new String[]{"C", "AG"};
-        String[] PortalMotorcycleYourQuotePage = new String[]{"AH", "AI"};
-        String[] PortalMotorcycleFinalDetailsPage = new String[]{"AJ", "AU"};
-        String[] PortalMotorCycleBuyPage = new String[]{"AV", "BA"};
-        motorCycleStructure = new LinkedHashMap<>();
-        motorCycleStructure.put("TC_ID", motorCycleTestCaseID);
-        motorCycleStructure.put("PortalMotorcycleGetAQuotePage", PortalMotorcycleGetAQuotePage);
-        motorCycleStructure.put("PortalMotorcycleYourQuotePage", PortalMotorcycleYourQuotePage);
-        motorCycleStructure.put("PortalMotorcycleFinalDetailsPage", PortalMotorcycleFinalDetailsPage);
-        motorCycleStructure.put("PortalMotorCycleBuyPage", PortalMotorCycleBuyPage);
-//----------------------Motor Car-----------------------------
-        String[] motorCarTestCaseID = new String[]{"A", "A"};
-        String[] PortalMotorGetAQuotePage = new String[]{"C", "AD"};
-        String[] PortalMotorYourQuote = new String[]{"AE", "AF"};
-        String[] PortalMotorFinalDetailsPage = new String[]{"AG", "AR"};
-        String[] PortalMotorBuyPage = new String[]{"AS", "AX"};
-        motorCarStructure = new LinkedHashMap<String, String[]>();
-        motorCarStructure.put("TC_ID", motorCarTestCaseID);
-        motorCarStructure.put("PortalMotorGetAQuotePage", PortalMotorGetAQuotePage);
-        motorCarStructure.put("PortalMotorYourQuote", PortalMotorYourQuote);
-        motorCarStructure.put("PortalMotorFinalDetailsPage", PortalMotorFinalDetailsPage);
-        motorCarStructure.put("PortalBuyPage", PortalMotorBuyPage);
-    }
-
-
-    public static void CreateJsonFromExcel(String filePath) throws IOException {
-
-        initData();
-        XSSFWorkbook excelWorkBook = openExcelFile(filePath);
-        LinkedHashMap<String, int[]> scheme = getScheme(excelWorkBook.getSheet("Car").getRow(0));
-        //createJsonDataAsObject(excelWorkBook.getSheet("TravelAnnual"), annualTravelStructure);
-//        createJsonDataAsObject(excelWorkBook.getSheet("Motorcycle"),motorCycleStructure );
-//        createJsonDataAsObject(excelWorkBook.getSheet("Car"), motorCarStructure);
-
+    public static void CreateJsonFilesFromExcel(String excelFile) throws IOException {
+        XSSFWorkbook excelWorkBook = openExcelFile(excelFile);
+        int rowIndexOfPage = 0;
+        for (int i = 0; i < excelWorkBook.getNumberOfSheets();i++) {
+            LinkedHashMap<String, int[]> pagesStructure = getPagesStructure(excelWorkBook.getSheetAt(i).getRow(rowIndexOfPage));
+            createJsonDataAsObject(excelWorkBook.getSheetAt(i), pagesStructure);
+        }
     }
 
     public static XSSFWorkbook openExcelFile(String file) {
@@ -106,8 +49,8 @@ public class ConvertExcelToJson {
         jsonFileWriter.flush();
     }
 
-    private static LinkedHashMap<String, int[]> getScheme(XSSFRow page) {
-        LinkedHashMap<String, int[]> scheme = new LinkedHashMap<>();
+    private static LinkedHashMap<String, int[]> getPagesStructure(XSSFRow page) {
+        LinkedHashMap<String, int[]> pagesStructure = new LinkedHashMap<>();
         int start = 0;
         int end = 0;
         int i = 0;
@@ -129,7 +72,7 @@ public class ConvertExcelToJson {
                         increase = false;
                     }
                     int[] startEnd = new int[]{start, end};
-                    scheme.put(page.getCell(start).getStringCellValue(), startEnd);
+                    pagesStructure.put(page.getCell(start).getStringCellValue(), startEnd);
                     i = increase ? i + 1 : i;
                 }
             }
@@ -138,10 +81,10 @@ public class ConvertExcelToJson {
 
         }
 
-        return scheme;
+        return pagesStructure;
     }
 
-    private static void createJsonDataAsObject(XSSFSheet sheet, LinkedHashMap<String, String[]> jsonScheme) throws IOException {
+    private static void createJsonDataAsObject(XSSFSheet sheet, LinkedHashMap<String, int[]> jsonScheme) throws IOException {
 
         List<List<String>> ret = new ArrayList<List<String>>();
         FormulaEvaluator evaluator = sheet.getWorkbook().getCreationHelper().createFormulaEvaluator();
@@ -164,12 +107,11 @@ public class ConvertExcelToJson {
                     testCaseID = sheet.getRow(i).getCell(0).toString().trim();
                 } else {
                     LinkedHashMap<String, String> fieldObject = new LinkedHashMap<>();
-                    int firstColumn = CellReference.convertColStringToIndex(jsonScheme.get(key)[0]);
-                    int lastColumn = CellReference.convertColStringToIndex(jsonScheme.get(key)[1]);
+                    int firstColumn = jsonScheme.get(key)[0];
+                    int lastColumn = jsonScheme.get(key)[1];
                     XSSFRow currentRow = sheet.getRow(i);
                     for (int j = firstColumn; j <= lastColumn; j++) {
                         XSSFCell cell = currentRow.getCell(j);
-                        //CellType cellType = cell.getCellType();
                         String cellType = type.getCell(j).toString();
                         if ((cell.getRawValue() == null) || ("".equals(cell.getRawValue()))) {
                             continue;
