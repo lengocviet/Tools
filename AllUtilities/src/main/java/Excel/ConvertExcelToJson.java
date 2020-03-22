@@ -22,7 +22,7 @@ public class ConvertExcelToJson {
     public static void CreateJsonFilesFromExcel(String excelFile) throws IOException {
         XSSFWorkbook excelWorkBook = openExcelFile(excelFile);
         int rowIndexOfPage = 0;
-        for (int i = 0; i < excelWorkBook.getNumberOfSheets();i++) {
+        for (int i = 0; i < excelWorkBook.getNumberOfSheets(); i++) {
             LinkedHashMap<String, int[]> pagesStructure = getPagesStructure(excelWorkBook.getSheetAt(i).getRow(rowIndexOfPage));
             createJsonDataAsObject(excelWorkBook.getSheetAt(i), pagesStructure);
         }
@@ -77,27 +77,39 @@ public class ConvertExcelToJson {
                 }
             }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.out.println("Error when create page structure at" + page.getSheet().getSheetName() + e.getMessage());
+            throw e;
 
         }
 
         return pagesStructure;
     }
-
+    private static int getLastRow (XSSFSheet sheet)
+    {
+        int i = 3;
+        while (i<=sheet.getLastRowNum()) {
+         if (sheet.getRow(i).getCell(0)==null)
+         {
+             break;
+         }
+         i++;
+        }
+        System.out.println("Max row for sheet" + sheet.getSheetName() + i);
+        return i;
+    }
     private static void createJsonDataAsObject(XSSFSheet sheet, LinkedHashMap<String, int[]> jsonScheme) throws IOException {
 
         List<List<String>> ret = new ArrayList<List<String>>();
         FormulaEvaluator evaluator = sheet.getWorkbook().getCreationHelper().createFormulaEvaluator();
         int firstDataRow = 3;
-        int lastDataRow = sheet.getLastRowNum();
+        int lastDataRow = getLastRow(sheet);
+        if (lastDataRow <= 3) return;
         LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, String>>>> featureObject = new LinkedHashMap<>();
         LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, String>>> testCaseObject = new LinkedHashMap<>();
         /*First row is page -> the second row is header of column. Data is from the third row */
-        if (lastDataRow <= 3) return;
-        XSSFRow page = sheet.getRow(0);
         XSSFRow type = sheet.getRow(1);
         XSSFRow header = sheet.getRow(2);
-        for (int i = firstDataRow; i <= 6; i++) {
+        for (int i = firstDataRow; i <lastDataRow; i++) {
             LinkedHashMap<String, LinkedHashMap<String, String>> pageObject = new LinkedHashMap<>();
             String testCaseID = "";
             List<String> keys = new ArrayList<String>(jsonScheme.keySet());
@@ -128,12 +140,14 @@ public class ConvertExcelToJson {
                                     fieldObject.put(header.getCell(j).toString().trim(), Integer.toString((int) cell.getNumericCellValue()));
                                     break;
                                 case "BOOLEAN":
-
                                     fieldObject.put(header.getCell(j).toString().trim(), Boolean.toString(cell.getBooleanCellValue()));
-
+                                    break;
                                 case "STRING":
-
                                     fieldObject.put(header.getCell(j).toString().trim(), cell.getStringCellValue().trim());
+                                    break;
+                                case "PERCENT":
+                                    String fieldValue = (int)(cell.getNumericCellValue()*100) + "%";
+                                    fieldObject.put(header.getCell(j).toString().trim(), fieldValue);
                                     break;
                                 default:
                                     fieldObject.put(header.getCell(j).toString().trim(), cell.getRawValue());
@@ -141,6 +155,7 @@ public class ConvertExcelToJson {
                         } catch (IllegalStateException e) {
                             System.out.println("Error when read data at Cell:" + header.getCell(j).toString() + " Cell type:" + cellType);
                             System.out.println("Error type:" + e.getMessage());
+                            throw e;
                         }
 
                     }
@@ -149,7 +164,6 @@ public class ConvertExcelToJson {
                 }
                 testCaseObject.put(testCaseID, pageObject);
             }
-
         }
         featureObject.put(sheet.getSheetName().toString(), testCaseObject);
         String jsonString = new Gson().toJson(featureObject, LinkedHashMap.class);
