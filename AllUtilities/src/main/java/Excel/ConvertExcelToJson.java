@@ -28,18 +28,18 @@ public class ConvertExcelToJson {
         }
     }
 
-    public static XSSFWorkbook openExcelFile(String file) {
+    public static XSSFWorkbook openExcelFile(String file) throws IOException {
         try {
-            FileInputStream fileInputStream = new FileInputStream(file.trim());
             XSSFWorkbook excelWorkBook = new XSSFWorkbook(file);
             return excelWorkBook;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
-            return new XSSFWorkbook();
+            throw e;
         } catch (IOException e) {
             e.printStackTrace();
-            return new XSSFWorkbook();
+            throw e;
         }
+
     }
 
     private static void writeJsonToFile(String data, String file) throws IOException {
@@ -94,7 +94,6 @@ public class ConvertExcelToJson {
          }
          i++;
         }
-        System.out.println("Max row for sheet" + sheet.getSheetName() + i);
         return i;
     }
     private static void createJsonDataAsObject(XSSFSheet sheet, LinkedHashMap<String, int[]> jsonScheme) throws IOException {
@@ -136,7 +135,6 @@ public class ConvertExcelToJson {
                                     fieldObject.put(header.getCell(j).toString().trim(), sdf.format(dateValue));
                                     break;
                                 case "INT":
-
                                     fieldObject.put(header.getCell(j).toString().trim(), Integer.toString((int) cell.getNumericCellValue()));
                                     break;
                                 case "BOOLEAN":
