@@ -1,6 +1,7 @@
 package Excel;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -203,7 +204,9 @@ public class ConvertExcelToJson {
             }
         }
         featureObject.put(sheet.getSheetName(), testCaseObject);
-        String jsonString = new Gson().toJson(featureObject, LinkedHashMap.class);
+        Gson gson = new GsonBuilder().disableHtmlEscaping().create();
+        String jsonString = gson.toJson(featureObject, LinkedHashMap.class);
+        //String jsonString = new Gson().toJson(featureObject, LinkedHashMap.class);
         String path = "." + "\\data\\" + sheet.getSheetName() + ".json";
         writeJsonToFile(jsonString, path);
     }
