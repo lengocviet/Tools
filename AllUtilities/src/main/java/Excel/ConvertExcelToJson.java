@@ -176,7 +176,7 @@ public class ConvertExcelToJson {
                                             }
                                             break;
                                         case STRING:
-                                            fieldObject.put(header.getCell(j).toString().trim(), cell.getStringCellValue());
+                                            fieldObject.put(header.getCell(j).toString().trim(), cell.getStringCellValue().trim());
                                             break;
                                         default:
                                             DataFormatter df = new DataFormatter();
