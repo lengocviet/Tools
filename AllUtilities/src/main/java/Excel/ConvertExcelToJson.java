@@ -1,16 +1,17 @@
 package Excel;
 
 import com.google.gson.Gson;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -44,11 +45,34 @@ public class ConvertExcelToJson {
 
     private static void writeJsonToFile(String data, String file) throws IOException {
 
-        FileWriter jsonFileWriter = new FileWriter(file);
-        jsonFileWriter.write(data);
-        jsonFileWriter.flush();
-    }
+//        FileWriter jsonFileWriter = new FileWriter(file);
+//        jsonFileWriter.write(data);
+//        jsonFileWriter.flush();
+        try {
+            File fileDir = new File(file);
 
+            Writer out = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream(fileDir), "UTF8"));
+
+            out.write(data);
+
+            out.flush();
+            out.close();
+
+        }
+        catch (UnsupportedEncodingException e)
+        {
+            System.out.println(e.getMessage());
+        }
+        catch (IOException e)
+        {
+            System.out.println(e.getMessage());
+        }
+        catch (Exception e)
+        {
+            System.out.println(e.getMessage());
+        }
+    }
     private static LinkedHashMap<String, int[]> getPagesStructure(XSSFRow page) {
         LinkedHashMap<String, int[]> pagesStructure = new LinkedHashMap<>();
         int start = 0;
@@ -84,31 +108,31 @@ public class ConvertExcelToJson {
 
         return pagesStructure;
     }
-    private static int getLastRow (XSSFSheet sheet)
-    {
+
+    private static int getLastRow(XSSFSheet sheet) {
         int i = 3;
-        while (i<=sheet.getLastRowNum()) {
-         if (sheet.getRow(i).getCell(0)==null)
-         {
-             break;
-         }
-         i++;
+        while (i <= sheet.getLastRowNum()) {
+            if (sheet.getRow(i).getCell(0) == null) {
+                break;
+            }
+            i++;
         }
         return i;
     }
+
     private static void createJsonDataAsObject(XSSFSheet sheet, LinkedHashMap<String, int[]> jsonScheme) throws IOException {
 
         List<List<String>> ret = new ArrayList<List<String>>();
         FormulaEvaluator evaluator = sheet.getWorkbook().getCreationHelper().createFormulaEvaluator();
-        int firstDataRow = 3;
+        int firstDataRow = 2;
         int lastDataRow = getLastRow(sheet);
-        if (lastDataRow <= 3) return;
+        if (lastDataRow <= 2) return;
         LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, String>>>> featureObject = new LinkedHashMap<>();
         LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, String>>> testCaseObject = new LinkedHashMap<>();
         /*First row is page -> the second row is header of column. Data is from the third row */
-        XSSFRow type = sheet.getRow(1);
-        XSSFRow header = sheet.getRow(2);
-        for (int i = firstDataRow; i <lastDataRow; i++) {
+        //XSSFRow type = sheet.getRow(1);
+        XSSFRow header = sheet.getRow(1);
+        for (int i = firstDataRow; i < lastDataRow; i++) {
             LinkedHashMap<String, LinkedHashMap<String, String>> pageObject = new LinkedHashMap<>();
             String testCaseID = "";
             List<String> keys = new ArrayList<String>(jsonScheme.keySet());
@@ -123,32 +147,47 @@ public class ConvertExcelToJson {
                     XSSFRow currentRow = sheet.getRow(i);
                     for (int j = firstColumn; j <= lastColumn; j++) {
                         XSSFCell cell = currentRow.getCell(j);
-                        String cellType = type.getCell(j).toString();
+                        CellType cellType = cell.getCellType();
                         if ((cell.getRawValue() == null) || ("".equals(cell.getRawValue()))) {
                             continue;
                         }
                         try {
                             switch (cellType) {
-                                case "DATE":
-                                    Date dateValue = cell.getDateCellValue();
-                                    SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-                                    fieldObject.put(header.getCell(j).toString().trim(), sdf.format(dateValue));
-                                    break;
-                                case "INT":
-                                    fieldObject.put(header.getCell(j).toString().trim(), Integer.toString((int) cell.getNumericCellValue()));
-                                    break;
-                                case "BOOLEAN":
-                                    fieldObject.put(header.getCell(j).toString().trim(), Boolean.toString(cell.getBooleanCellValue()));
-                                    break;
-                                case "STRING":
-                                    fieldObject.put(header.getCell(j).toString().trim(), cell.getStringCellValue().trim());
-                                    break;
-                                case "PERCENT":
-                                    String fieldValue = (int)(cell.getNumericCellValue()*100) + "%";
-                                    fieldObject.put(header.getCell(j).toString().trim(), fieldValue);
+                                case NUMERIC:
+                                    if (DateUtil.isCellDateFormatted(cell)) {
+                                        Date dateValue = cell.getDateCellValue();
+                                        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+                                        fieldObject.put(header.getCell(j).toString().trim(), sdf.format(dateValue));
+                                        break;
+                                    } else {
+
+                                        fieldObject.put(header.getCell(j).toString().trim(), Integer.toString((int) cell.getNumericCellValue()));
+                                        break;
+                                    }
+                                case FORMULA:
+                                    switch (evaluator.evaluateFormulaCell(cell)) {
+                                        case NUMERIC:
+                                            if (DateUtil.isCellDateFormatted(cell)) {
+                                                Date dateValue = cell.getDateCellValue();
+                                                SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+                                                fieldObject.put(header.getCell(j).toString().trim(), sdf.format(dateValue));
+                                            } else {
+                                                fieldObject.put(header.getCell(j).toString().trim(), Integer.toString((int) cell.getNumericCellValue()));
+                                            }
+                                            break;
+                                        case STRING:
+                                            fieldObject.put(header.getCell(j).toString().trim(), cell.getStringCellValue());
+                                            break;
+                                        default:
+                                            DataFormatter df = new DataFormatter();
+                                            String value = df.formatCellValue(cell);
+                                            fieldObject.put(header.getCell(j).toString().trim(), value);
+                                    }
                                     break;
                                 default:
-                                    fieldObject.put(header.getCell(j).toString().trim(), cell.getRawValue());
+                                    DataFormatter df = new DataFormatter();
+                                    String value = df.formatCellValue(cell).trim();
+                                    fieldObject.put(header.getCell(j).toString().trim(), value);
                             }
                         } catch (IllegalStateException e) {
                             System.out.println("Error when read data at Cell:" + header.getCell(j).toString() + " Cell type:" + cellType);
@@ -163,9 +202,9 @@ public class ConvertExcelToJson {
                 testCaseObject.put(testCaseID, pageObject);
             }
         }
-        featureObject.put(sheet.getSheetName().toString(), testCaseObject);
+        featureObject.put(sheet.getSheetName(), testCaseObject);
         String jsonString = new Gson().toJson(featureObject, LinkedHashMap.class);
-        String path = "." + "\\data\\" + sheet.getSheetName().toString() + ".json";
+        String path = "." + "\\data\\" + sheet.getSheetName() + ".json";
         writeJsonToFile(jsonString, path);
     }
 
